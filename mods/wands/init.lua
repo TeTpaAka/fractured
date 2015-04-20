@@ -65,63 +65,125 @@ end)
 
 
 
-local use = function(itemstack, user, pointed_thing)
-	local playername = user:get_player_name()
-	if (not playername) then
-		return itemstack
-	end
-	if (not(wands.selected_spells[playername]) or not(wands.selected_spells[playername].list)) then
-		return itemstack
-	end
-	local selected = tonumber(itemstack:get_metadata()) or 1
-	if (not wands.selected_spells[playername].list[selected] or wands.spells[wands.selected_spells[playername].list[selected]] == nil) then
-		return itemstack
-	end
-	if (not wands.unlocked_spells[playername][wands.selected_spells[playername].list[selected]]) then
-		return
-	end
-	if (pointed_thing.type == wands.spells[wands.selected_spells[playername].list[selected]].type or wands.spells[wands.selected_spells[playername].list[selected]].type == "anything") then
-		if (wands.spells[wands.selected_spells[playername].list[selected]].func ~= nil) then
-			if (mana.subtract(playername, wands.spells[wands.selected_spells[playername].list[selected]].cost)) then
-				if (not wands.spells[wands.selected_spells[playername].list[selected]].func(user, pointed_thing)) then
-					mana.add_up_to(playername, wands.spells[wands.selected_spells[playername].list[selected]].cost)
+
+-- register the wand
+function wands.register_wand(wandname, wanddef)
+	wanddef.image = wanddef.image or "wands_wand.png"
+	wanddef.mana_multiplier = wanddef.mana_multiplier or 1
+	wanddef.range = wanddef.range or 20
+	wanddef.uses = wanddef.uses or 100
+
+	local use = function(itemstack, user, pointed_thing)
+		local playername = user:get_player_name()
+		if (not playername) then
+			return itemstack
+		end
+		if (not(wands.selected_spells[playername]) or not(wands.selected_spells[playername].list)) then
+			return itemstack
+		end
+		local selected = tonumber(itemstack:get_metadata()) or 1
+		if (not wands.selected_spells[playername].list[selected] or wands.spells[wands.selected_spells[playername].list[selected]] == nil) then
+			return itemstack
+		end
+		if (not wands.unlocked_spells[playername][wands.selected_spells[playername].list[selected]]) then
+			return
+		end
+		if (pointed_thing.type == wands.spells[wands.selected_spells[playername].list[selected]].type or wands.spells[wands.selected_spells[playername].list[selected]].type == "anything") then
+			if (wands.spells[wands.selected_spells[playername].list[selected]].func ~= nil) then
+				if (mana.subtract(playername, wands.spells[wands.selected_spells[playername].list[selected]].cost * wanddef.mana_multiplier)) then
+					if (wands.spells[wands.selected_spells[playername].list[selected]].func(user, pointed_thing)) then
+						if (wanddef.uses > 0) then
+							itemstack:add_wear(math.ceil(65534 / wanddef.uses))
+						end
+					else
+						mana.add_up_to(playername, wands.spells[wands.selected_spells[playername].list[selected]].cost * wanddef.mana_multiplier)
+					end
 				end
 			end
 		end
-	end
-	return itemstack
-end
-local place = function(itemstack, placer, pointed_thing)
-	local playername = placer:get_player_name()
-	if (not playername) then
 		return itemstack
 	end
-	if (not wands.selected_spells[playername] or not wands.selected_spells[playername].list) then
+	local place = function(itemstack, placer, pointed_thing)
+		local playername = placer:get_player_name()
+		if (not playername) then
+			return itemstack
+		end
+		if (not wands.selected_spells[playername] or not wands.selected_spells[playername].list) then
+			return itemstack
+		end
+		local selected = tonumber(itemstack:get_metadata()) or 1
+		selected = selected + 1
+		if (selected > 5 or selected > #wands.selected_spells[playername].list) then
+			selected = 1
+		end
+		itemstack:set_name(wandname.. "_" ..selected)
+		itemstack:set_metadata(selected)
 		return itemstack
 	end
-	local selected = tonumber(itemstack:get_metadata()) or 1
-	selected = selected + 1
-	if (selected > 5 or selected > #wands.selected_spells[playername].list) then
-		selected = 1
+
+	for i = 1,5 do
+		minetest.register_tool(wandname .. "_" ..i, {
+			description = wanddef.description,
+			inventory_image = wanddef.image .. "^wands_"..i..".png",
+			wield_image = wanddef.image,
+			stack_max = 1,
+			range = wanddef.range,
+			on_use = use,
+			on_place = place
+		})
 	end
-	itemstack:set_name("wands:wand_"..selected)
-	itemstack:set_metadata(selected)
-	return itemstack
 end
 
+-- register some wands
+wands.register_wand("wands:wand_normal", {uses = 100, range=20, mana_multiplier=1,
+						image = "wands_normal_wand.png",
+						description = "A medium strength wand"})
+minetest.register_craftitem("wands:orb_normal", {
+	description = "Core of a normal wand",
+	inventory_image = "wands_normal_orb.png"
+})
+minetest.register_craft({
+	output = "wands:orb_normal",
+	recipe = {
+		{"",				"default:esem_crystal_fragment", 	""},
+		{"default:esem_crystal_fragment", "default:diamond", "default:esem_crystal_fragment" },
+		{"",		"default:esem_crystal_fragment", 		""}
+	}
+})
+minetest.register_craft({
+	output = "wands:wand_normal_1",
+	recipe = {
+		{"group:stick",	"wands:orb_normal", 	"group:stick"},
+		{"",		"group:stick", 		""},
+		{"",		"group:stick", 		""}
+	}
+})
 
--- register the wand
-for i = 1,5 do
-	minetest.register_tool("wands:wand_"..i, {
-		description = "A powerfull wand",
-		inventory_image = "wands_wand.png^wands_"..i..".png",
-		wield_image = "wands_wand.png",
-		stack_max = 1,
-		range = 20,
-		on_use = use,
-		on_place = place
- 	})
-end
+wands.register_wand("wands:wand_apprentice", {uses = 50, range=15, mana_multiplier=2,
+						image = "wands_apprentice_wand.png",
+						description = "Apprentice wand: Breaks fast, uses uch mana"})
+minetest.register_craftitem("wands:orb_apprentice", {
+	description = "Core of an apprentice wand",
+	inventory_image = "wands_apprentice_orb.png"
+})
+minetest.register_craft({
+	output = "wands:orb_apprentice",
+	recipe = {
+		{"",				"default:esem_crystal_fragment", 	""},
+		{"default:esem_crystal_fragment", "default:gold_lump", "default:esem_crystal_fragment" },
+		{"",		"default:esem_crystal_fragment", 		""}
+	}
+})
+minetest.register_craft({
+	output = "wands:wand_apprentice_1",
+	recipe = {
+		{"group:stick",	"wands:orb_apprentice",	"group:stick"},
+		{"",		"group:stick", 		""},
+		{"",		"group:stick", 		""}
+	}
+})
+
+
 
 local function unlocker_formspec(playername) 
 	local formspec = "size[10,10]"
