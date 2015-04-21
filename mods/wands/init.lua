@@ -17,7 +17,8 @@ wands.formspec_lists = {}
 -- spellspec is a table of the format:
 -- { title       = "the visible name of the spell",
 --   description = "a small description of the spell",
---   type        = "nothing" for yourself, "node" for the environment or "object" for objects, see pointed_thing,
+--   type        = "nothing" or "anything" for yourself, "node" for the environment or "object" for objects, see pointed_thing,
+--   level	 = value between 0 and 5, how rare the spell is
 --   cost        = amount of mana to get consumend
 --   func        = function(player, pointed_thing) function to get called.
 -- }
@@ -26,11 +27,12 @@ function wands.register_spell(name, spellspec)
 		print "There is already a spell with this name."
 		return false
 	end
-	wands.spells[name] = {  title = spellspec.title or "missing title",
+	wands.spells[name] = {  title       = spellspec.title or "missing title",
 				description = spellspec.description or "missing description",
-				type = spellspec.type,
-				cost = spellspec.cost or 0,
-				func = spellspec.func or nil }
+				type        = spellspec.type,
+				cost        = spellspec.cost or 0,
+				func        = spellspec.func or nil,
+				level       = spellspec.level or 1}
 end
 
 -- unlocks the spell spell for the player playername
@@ -51,6 +53,18 @@ function wands.is_unlocked(playername, spell)
 		return true
 	end
 	return false
+end
+
+-- pick a random spell
+-- level - value between 1 and 5 determining how hard the spell is to get
+function wands.pick_spell(level)
+	local spelllist = { }
+	for spell,def in pairs(wands.spells) do
+		if (def.level == level) then
+			table.insert(spelllist, spell)
+		end
+	end
+	return spelllist[math.ceil(math.random()*#spelllist)]
 end
 
 minetest.register_on_shutdown(function()
@@ -184,6 +198,33 @@ minetest.register_craft({
 })
 
 
+local function show_spell(playername, spell)
+	local formspec = "size[7,3]" ..
+			"label[0,0.5;Name:        " .. (wands.spells[spell].title or "unknown") .. "]" ..
+			"label[0,1.0;Description: " .. (wands.spells[spell].description or "unknown") .. "]"
+	if (not wands.is_unlocked(playername, spell)) then
+		formspec = formspec .. "button_exit[2,2;2,.5;learn;Learn spell]"
+	end
+	minetest.show_formspec(playername, "wands:info", formspec)
+end
+
+-- register the scrolls
+for i = 1,5,1 do
+	minetest.register_craftitem("wands:scroll_" .. i, {
+		inventory_image = "wands_scroll.png",
+		description = "An ancient scroll holding a spell",
+		stack_max = 1,
+		on_use = function(itemstack, user, pointed_thing)
+			local meta = itemstack:get_metadata()
+			if (meta == "") then
+				meta = wands.pick_spell(1)
+				itemstack:set_metadata(meta)
+			end
+			show_spell(user:get_player_name(), meta)
+			return itemstack
+		end
+	})
+end
 
 local function unlocker_formspec(playername) 
 	local formspec = "size[10,10]"
@@ -202,7 +243,7 @@ local function unlocker_formspec(playername)
 			x = x + 3
 		end
 	end
-	minetest.show_formspec(playername, "spells_unlocker", formspec)
+	minetest.show_formspec(playername, "wands:unlocker", formspec)
 end
 
 minetest.register_node("wands:unlocker", {
@@ -221,7 +262,7 @@ minetest.register_node("wands:unlocker", {
 })
 
 minetest.register_on_player_receive_fields(function(player, formname, fieldname)
-	if (formname == "spells_unlocker") then
+	if (formname == "wands:unlocker") then
 		if (player == nil) then
 			return
 		end
@@ -255,7 +296,6 @@ local function spelllist(playername, uidx, sidx)
 			has_unlocked_spells = true
 		end
 	end
-	print(has_unlocked_spells)
 	if (has_unlocked_spells) then
 		formspec = string.sub(formspec, 1, -2)
 	end
@@ -322,6 +362,17 @@ minetest.register_on_player_receive_fields(function(player, formname, fields)
 			local event = minetest.explode_textlist_event(fields.selected_spells)
 			wands.formspec_lists[playername].selected_idx = tonumber(event.index)
 			return
+		end
+	end
+	if (formname == "wands:info") then
+		if (fields["learn"]) then
+			local itemstack = player:get_wielded_item()
+			local meta = itemstack:get_metadata()
+			if (meta ~= "" and not wands.is_unlocked(player, meta)) then
+				wands.unlock_spell(playername, meta)
+				itemstack:clear()
+				player:set_wielded_item(itemstack)
+			end
 		end
 	end
 end)
