@@ -8,7 +8,8 @@ wands = wands or { }
 wands.spells = { }
 wands.unlocked_spells = wands.unlocked_spells or { }
 wands.selected_spells = wands.selected_spells or { }
-wands.formspec_lists = {}
+wands.formspec_lists = { }
+wands.groups_allow = { }
 
 
 -- registeres a spell with the name name
@@ -32,7 +33,8 @@ function wands.register_spell(name, spellspec)
 				type        = spellspec.type,
 				cost        = spellspec.cost or 0,
 				func        = spellspec.func or nil,
-				level       = spellspec.level or 1}
+				level       = spellspec.level or 1,
+				groups      = spellspec.groups or { }}
 end
 
 -- unlocks the spell spell for the player playername
@@ -65,6 +67,31 @@ function wands.pick_spell(level)
 		end
 	end
 	return spelllist[math.ceil(math.random()*#spelllist)]
+end
+
+-- set a checker function for a group to determine whether you can cast the spell
+-- func has the arguments function(player, pointed_thing, rating)
+function wands.set_check_function(group, func)
+	if (func ~= nil) then
+		wands.groups_allow[group] = wands.groups_allow[group] or { }
+		table.insert(wands.groups_allow[group], func)
+	end
+end
+
+-- check whether pointed_thing is an allowed target for pointed_thing
+function wands.allowed(spell, player, pointed_thing)
+	local groups = wands.spells[spell].groups
+	groups.base = 1
+	for group,rating in pairs(groups) do
+		if (wands.groups_allow[group] ~= nil) then
+			for _,check_func in ipairs(wands.groups_allow[group]) do
+				if (not check_func(player, pointed_thing, rating)) then
+					return false
+				end
+			end
+		end
+	end
+	return true
 end
 
 minetest.register_on_shutdown(function()
@@ -100,7 +127,10 @@ function wands.register_wand(wandname, wanddef)
 			return itemstack
 		end
 		if (not wands.unlocked_spells[playername][wands.selected_spells[playername].list[selected]]) then
-			return
+			return itemstack
+		end
+		if (not wands.allowed(wands.selected_spells[playername].list[selected], user, pointed_thing)) then
+			return itemstack
 		end
 		if (pointed_thing.type == wands.spells[wands.selected_spells[playername].list[selected]].type or wands.spells[wands.selected_spells[playername].list[selected]].type == "anything") then
 			if (wands.spells[wands.selected_spells[playername].list[selected]].func ~= nil) then

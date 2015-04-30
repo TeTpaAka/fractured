@@ -1,4 +1,4 @@
-
+--[[
 --if fractured exists, get iswild and wilddist from there
 --otherwise default to west is wild
 local iswild;
@@ -58,4 +58,4 @@ for cou,def in pairs(minetest.registered_tools) do
 end--for
 
 
-
+--]]

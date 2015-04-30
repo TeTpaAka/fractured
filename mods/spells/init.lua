@@ -4,6 +4,14 @@ if (enable_attack == nil) then
 	enable_attack = true
 end
 
+wands.set_check_function("attack", function(player, pointed_thing, rating)
+	pos = player:getpos()
+	if (fractured ~= nil and not fractured.iswild(pos)) then
+		return false
+	end
+	return true
+end)
+
 -- activate the spells
 --[[minetest.register_on_joinplayer(function(player)
 	local playername = player:get_player_name()
@@ -136,12 +144,11 @@ if (enable_attack) then
 		description = "Damages a monster or a player",
 		type = "object",
 		cost = 50,
+		groups = { attack=1 },
 		func = function(player, pointed_thing)
+			print "Attack"
 			local luaentity = pointed_thing.ref:get_luaentity()
 			if (luaentity and luaentity.name == "__builtin:item") then
-				return false
-			end
-			if (fractured ~= nil and not fractured.iswild(player:getpos())) then
 				return false
 			end
 
@@ -224,11 +231,9 @@ if playereffects_path then
 			description = "Blinds the player you're pointing at for five seconds",
 			type = "object",
 			cost = 50,
+			groups = {attack = 1},
 			func = function(player, pointed_thing)
 				if (not pointed_thing.ref:is_player()) then
-					return false
-				end
-				if (fractured ~= nil and not fractured.iswild(player:getpos())) then
 					return false
 				end
 				if (playereffects.apply_effect_type("spells:blind_effect", 5, pointed_thing.ref)) then
@@ -259,11 +264,9 @@ if playereffects_path then
 			description = "Stops a player from flying",
 			type = "object",
 			cost = 50,
+			groups = {attack = 1},
 			func = function(player, pointed_thing)
 				if (not pointed_thing.ref:is_player()) then
-					return false
-				end
-				if (fractured ~= nil and not fractured.iswild(player:getpos())) then
 					return false
 				end
 
@@ -279,11 +282,9 @@ if playereffects_path then
 			description = "Takes all breath of a player",
 			type = "object",
 			cost = 50,
+			groups = {attack = 1},
 			func = function(player, pointed_thing)
 				if (not pointed_thing.ref:is_player()) then
-					return false
-				end
-				if (fractured ~= nil and not fractured.iswild(player:getpos())) then
 					return false
 				end
 
@@ -305,11 +306,9 @@ if playereffects_path then
 			description = "Disables all movement of a player",
 			type = "object",
 			cost = 100,
+			groups = {attack = 1},
 			func = function(player, pointed_thing)
 				if (not pointed_thing.ref:is_player()) then
-					return false
-				end
-				if (fractured ~= nil and not fractured.iswild(player:getpos())) then
 					return false
 				end
 
