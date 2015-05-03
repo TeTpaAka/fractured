@@ -59,10 +59,21 @@ end
 
 -- pick a random spell
 -- level - value between 1 and 5 determining how hard the spell is to get
-function wands.pick_spell(level)
+function wands.pick_spell(level, groups)
+	groups = groups or { }
 	local spelllist = { }
 	for spell,def in pairs(wands.spells) do
+		local insert = false
 		if (def.level == level) then
+			insert = true
+			for group, rating in pairs(groups) do
+				def.groups[group] = def.groups[group] or 0
+				if (def.groups[group] ~= rating) then
+					insert = false
+				end
+			end
+		end
+		if (insert) then
 			table.insert(spelllist, spell)
 		end
 	end
